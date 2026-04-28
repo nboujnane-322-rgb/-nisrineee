@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlashLearn - Répétition Espacée Intelligente</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Animation personnalisée pour le flip 3D */
+        @keyframes flipCard {
+            0% { transform: rotateY(0deg); }
+            100% { transform: rotateY(180deg); }
+        }
+        
+        @keyframes flipCardReverse {
+            0% { transform: rotateY(180deg); }
+            100% { transform: rotateY(0deg); }
+        }
+        
+        .card-container {
+            perspective: 1000px;
+        }
+        
+        .flashcard {
+            width: 100%;
+            height: 300px;
+            position: relative;
+            transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            transform-style: preserve-3d;
+        }
+        
+        .flashcard.flipped {
+            transform: rotateY(180deg);
+        }
+        
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            text-align: center;
+            border-radius: 1rem;
+            cursor: pointer;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+        
+        .card-front {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+        }
+        
+        .card-back {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            transform: rotateY(180deg);
+        }
+        
+        .card-text {
+            font-size: 1.5rem;
+            font-weight: 600;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+        
+        .card-label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 1rem;
+        }
+        
+        .pulse-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: currentColor;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        
+        .stat-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Scrollbar personnalisée */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <div id="app" class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="text-3xl">🚀</div>
+                        <div>
+                            <h1 class="text-3xl font-bold">FlashLearn</h1>
+                            <p class="text-indigo-100 text-sm">Apprentissage par répétition espacée</p>
+                        </div>
+                    </div>
+                    <nav class="hidden md:flex gap-6">
+                        <button onclick="switchView('dashboard')" class="nav-btn hover:text-indigo-100 font-medium">📊 Dashboard</button>
+                        <button onclick="switchView('import')" class="nav-btn hover:text-indigo-100 font-medium">📥 Importer</button>
+                        <button onclick="switchView('study')" class="nav-btn hover:text-indigo-100 font-medium">🎓 Réviser</button>
+                        <button onclick="switchView('manage')" class="nav-btn hover:text-indigo-100 font-medium">⚙️ Gérer</button>
+                    </nav>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
+            <!-- Vue Dashboard -->
+            <div id="dashboard-view" class="view hidden">
+                <h2 class="text-3xl font-bold text-gray-900 mb-8">Tableau de Bord</h2>
+                
+                <!-- Statistiques -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="stat-card bg-white p-6 rounded-lg shadow">
+                        <div class="text-3xl mb-2">📚</div>
+                        <div class="text-gray-600 text-sm font-semibold">CARTES CRÉÉES</div>
+                        <div class="text-4xl font-bold text-indigo-600" id="stat-total">0</div>
+                    </div>
+                    
+                    <div class="stat-card bg-white p-6 rounded-lg shadow">
+                        <div class="text-3xl mb-2">📅</div>
+                        <div class="text-gray-600 text-sm font-semibold">À RÉVISER AUJOURD'HUI</div>
+                        <div class="text-4xl font-bold text-amber-600" id="stat-today">0</div>
+                    </div>
+                    
+                    <div class="stat-card bg-white p-6 rounded-lg shadow">
+                        <div class="text-3xl mb-2">✅</div>
+                        <div class="text-gray-600 text-sm font-semibold">BIEN MAÎTRISÉES</div>
+                        <div class="text-4xl font-bold text-emerald-600" id="stat-mastered">0</div>
+                    </div>
+                    
+                    <div class="stat-card bg-white p-6 rounded-lg shadow">
+                        <div class="text-3xl mb-2">📈</div>
+                        <div class="text-gray-600 text-sm font-semibold">TAUX DE RÉUSSITE</div>
+                        <div class="text-4xl font-bold text-purple-600" id="stat-success">0%</div>
+                    </div>
+                </div>
+
+                <!-- Progression par niveau -->
+                <div class="bg-white p-8 rounded-lg shadow mb-8">
+                    <h3 class="text-xl font-bold text-gray-900 mb-6">Progression par Niveau</h3>
+                    <div id="level-progress" class="space-y-4">
+                        <!-- Généré dynamiquement -->
+                    </div>
+                </div>
+
+                <!-- Cartes à réviser -->
+                <div class="bg-white p-8 rounded-lg shadow">
+                    <h3 class="text-xl font-bold text-gray-900 mb-6">Cartes Prioritaires</h3>
+                    <div id="priority-cards" class="space-y-3">
+                        <!-- Généré dynamiquement -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vue Import -->
+            <div id="import-view" class="view hidden">
+                <h2 class="text-3xl font-bold text-gray-900 mb-8">Importer du Contenu</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Zone de saisie -->
+                    <div class="bg-white p-8 rounded-lg shadow">
+                        <label class="block text-lg font-semibold text-gray-900 mb-4">
+                            📝 Votre Texte
+                        </label>
+                        <textarea 
+                            id="import-textarea"
+                            placeholder="Collez votre cours ou vos notes...&#10;&#10;Exemple:&#10;Photosynthèse : Processus biochimique convertissant la lumière en énergie chimique.&#10;Chlorophylle : Pigment vert absorbant la lumière pour la photosynthèse.&#10;ATP : Molécule d'énergie cellulaire produite pendant la photosynthèse."
+                            class="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 resize-none"
+                        ></textarea>
+                        
+                        <div class="grid grid-cols-2 gap-4 mt-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
+                                <input 
+                                    id="import-category"
+                                    type="text" 
+                                    placeholder="Ex: Biologie"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Nombre de cartes</label>
+                                <input 
+                                    id="import-count"
+                                    type="number" 
+                                    value="5"
+                                    min="1"
+                                    max="50"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                            </div>
+                        </div>
+                        
+                        <button 
+                            onclick="generateCards()"
+                            class="mt-6 w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-3 rounded-lg hover:shadow-lg transform hover:scale-105 transition"
+                        >
+                            ✨ Générer les Flashcards
+                        </button>
+                    </div>
+
+                    <!-- Aperçu des cartes générées -->
+                    <div class="bg-white p-8 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Aperçu Généré</h3>
+                        <div id="preview-cards" class="space-y-3 max-h-96 overflow-y-auto">
+                            <p class="text-gray-500 text-center py-8">Les cartes générées apparaîtront ici</p>
+                        </div>
+                        <button 
+                            id="confirm-btn"
+                            onclick="confirmCards()"
+                            class="mt-6 w-full bg-emerald-600 text-white font-bold py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled
+                        >
+                            ✅ Ajouter à ma Collection
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vue Révision -->
+            <div id="study-view" class="view hidden">
+                <h2 class="text-3xl font-bold text-gray-900 mb-8">Mode Révision</h2>
+                
+                <div class="bg-white p-8 rounded-lg shadow mb-8">
+                    <!-- Filtres et stats -->
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+                        <div class="flex-1 w-full md:w-auto">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
+                            <select 
+                                id="study-category"
+                                onchange="loadStudyCards()"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="">Toutes les catégories</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex gap-4 text-center">
+                            <div>
+                                <div class="text-2xl font-bold text-indigo-600" id="study-progress">0/0</div>
+                                <div class="text-sm text-gray-600">Progression</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-emerald-600" id="study-success">0%</div>
+                                <div class="text-sm text-gray-600">Réussite</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Carte Flash -->
+                    <div id="study-content" class="hidden">
+                        <div class="card-container mb-8">
+                            <div class="flashcard" id="card" onclick="flipCard()">
+                                <div class="card-face card-front">
+                                    <div class="card-label">QUESTION</div>
+                                    <div class="card-text" id="card-recto">Cliquez pour afficher la question</div>
+                                </div>
+                                <div class="card-face card-back">
+                                    <div class="card-label">RÉPONSE</div>
+                                    <div class="card-text" id="card-verso">Cliquez pour afficher la réponse</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Boutons d'action -->
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <button 
+                                onclick="previousCard()"
+                                class="px-6 py-3 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300 transition"
+                            >
+                                ← Précédent
+                            </button>
+                            <button 
+                                onclick="nextCard()"
+                                class="px-6 py-3 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300 transition"
+                            >
+                                Suivant →
+                            </button>
+                        </div>
+
+                        <!-- Boutons réponse -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <button 
+                                onclick="markCard(false)"
+                                class="px-6 py-4 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition text-lg"
+                            >
+                                ✗ Je ne savais pas
+                            </button>
+                            <button 
+                                onclick="markCard(true)"
+                                class="px-6 py-4 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition text-lg"
+                            >
+                                ✓ Je savais
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Message vide -->
+                    <div id="study-empty" class="text-center py-12">
+                        <div class="text-6xl mb-4">📭</div>
+                        <p class="text-gray-600 text-lg">Aucune carte à réviser. Importez du contenu d'abord!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vue Gestion -->
+            <div id="manage-view" class="view hidden">
+                <h2 class="text-3xl font-bold text-gray-900 mb-8">Gestionnaire de Cartes</h2>
+                
+                <!-- Outils -->
+                <div class="flex flex-col md:flex-row gap-4 mb-8">
+                    <button 
+                        onclick="exportData()"
+                        class="px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition"
+                    >
+                        📥 Exporter (JSON)
+                    </button>
+                    <button 
+                        onclick="document.getElementById('import-file').click()"
+                        class="px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition"
+                    >
+                        📤 Importer (JSON)
+                    </button>
+                    <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importData(event)">
+                    <button 
+                        onclick="resetAllData()"
+                        class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition ml-auto"
+                    >
+                        🗑️ Réinitialiser
+                    </button>
+                </div>
+
+                <!-- Liste des cartes -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div id="manage-cards" class="col-span-full">
+                        <!-- Généré dynamiquement -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ============================================
+        // FLASHLEARN - ENGINE DE GESTION DES CARTES
+        // ============================================
+
+        class FlashLearnEngine {
+            constructor() {
+                this.cards = this.loadFromStorage();
+                this.currentCardIndex = 0;
+                this.currentViewCards = [];
+                this.tempGeneratedCards = [];
+                this.init();
+            }
+
+            // Système de Stockage
+            loadFromStorage() {
+                const data = localStorage.getItem('flashlearn_cards');
+                return data ? JSON.parse(data) : [];
+            }
+
+            saveToStorage() {
+                localStorage.setItem('flashlearn_cards', JSON.stringify(this.cards));
+            }
+
+            // Initialisation
+            init() {
+                this.renderDashboard();
+                this.updateAllUI();
+                console.log('🚀 FlashLearn initialisé. Cartes:', this.cards.length);
+            }
+
+            // ============================================
+            // MOTEUR DE PARSING INTELLIGENT
+            // ============================================
+
+            parseText(text, maxCards) {
+                const cards = [];
+                
+                // Pattern 1: "Terme : Définition"
+                const colonPattern = /([^:\n]+):\s*([^:\n.]+[.!?]?)/g;
+                let match;
+                while ((match = colonPattern.exec(text)) && cards.length < maxCards) {
+                    const recto = match[1].trim();
+                    const verso = match[2].trim();
+                    
+                    if (recto.length > 3 && verso.length > 5 && recto.length < 100) {
+                        cards.push(this.createCard(recto, verso));
+                    }
+                }
+
+                // Pattern 2: Phrases contenant définisseurs
+                if (cards.length < maxCards) {
+                    const definers = ['est un', 'est une', 'signifie', 'désigne', 'représente', 'correspond à'];
+                    const sentences = text.split(/[.!?]+/);
+                    
+                    for (const sentence of sentences) {
+                        if (cards.length >= maxCards) break;
+                        
+                        for (const definer of definers) {
+                            if (sentence.includes(definer)) {
+                                const parts = sentence.split(new RegExp(`\\s+${definer}\\s+`, 'i'));
+                                if (parts.length === 2) {
+                                    const recto = parts[0].trim();
+                                    const verso = parts[1].trim();
+                                    
+                                    if (recto.length > 3 && verso.length > 10) {
+                                        cards.push(this.createCard(recto, verso));
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Pattern 3: Paires logiques de phrases
+                if (cards.length < maxCards) {
+                    const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+                    for (let i = 0; i < sentences.length - 1; i += 2) {
+                        if (cards.length >= maxCards) break;
+                        
+                        const s1 = sentences[i].trim().substring(0, 80);
+                        const s2 = sentences[i + 1].trim().substring(0, 120);
+                        
+                        if (s1.length > 5 && s2.length > 10) {
+                            cards.push(this.createCard(
+                                `Question: ${s1}?`,
+                                s2
+                            ));
+                        }
+                    }
+                }
+
+                return cards;
+            }
+
+            createCard(recto, verso) {
+                return {
+                    id: Date.now() + Math.random(),
+                    recto: recto.substring(0, 200),
+                    verso: verso.substring(0, 500),
+                    niveau_maitrise: 0, // 0-5
+                    prochain_passage: new Date().toISOString(),
+                    date_creation: new Date().toISOString(),
+                    historique: { correct: 0, incorrect: 0 },
+                    categorie: 'Sans catégorie'
+                };
+            }
+
+            // ============================================
+            // ALGORITHME LEITNER SIMPLIFIÉ
+            // ============================================
+
+            getCardsForToday() {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                return this.cards.filter(card => {
+                    const nextDate = new Date(card.prochain_passage);
+                    nextDate.setHours(0, 0, 0, 0);
+                    return nextDate <= today;
+                }).sort((a, b) => a.niveau_maitrise - b.niveau_maitrise);
+            }
+
+            markCard(cardId, correct) {
+                const card = this.cards.find(c => c.id === cardId);
+                if (!card) return;
+
+                card.historique[correct ? 'correct' : 'incorrect']++;
+
+                if (correct) {
+                    // Augmenter le niveau de maîtrise
+                    card.niveau_maitrise = Math.min(5, card.niveau_maitrise + 1);
+                    
+                    // Espacement selon le système Leitner
+                    const delais = [1, 3, 7, 14, 30, 60]; // jours
+                    const nextDelai = delais[card.niveau_maitrise - 1] || 60;
+                    
+                    const nextDate = new Date();
+                    nextDate.setDate(nextDate.getDate() + nextDelai);
+                    card.prochain_passage = nextDate.toISOString();
+                } else {
+                    // Réinitialiser le niveau et replacer immédiatement
+                    card.niveau_maitrise = 0;
+                    card.prochain_passage = new Date().toISOString();
+                }
+
+                this.saveToStorage();
+            }
+
+            // ============================================
+            // GESTION DES VUES ET UI
+            // ============================================
+
+            renderDashboard() {
+                const today = this.getCardsForToday();
+                const mastered = this.cards.filter(c => c.niveau_maitrise >= 5).length;
+                const total = this.cards.length;
+                const totalAttempts = this.cards.reduce((sum, c) => sum + c.historique.correct + c.historique.incorrect, 0);
+                const successRate = totalAttempts > 0 ? Math.round((
+                    this.cards.reduce((sum, c) => sum + c.historique.correct, 0) / totalAttempts
+                ) * 100) : 0;
+
+                document.getElementById('stat-total').textContent = total;
+                document.getElementById('stat-today').textContent = today.length;
+                document.getElementById('stat-mastered').textContent = mastered;
+                document.getElementById('stat-success').textContent = successRate + '%';
+
+                // Progression par niveau
+                const levelProgress = document.getElementById('level-progress');
+                levelProgress.innerHTML = '';
+                
+                for (let level = 0; level <= 5; level++) {
+                    const count = this.cards.filter(c => c.niveau_maitrise === level).length;
+                    const percentage = total > 0 ? (count / total * 100) : 0;
+                    const label = ['Non commencé', 'Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4', 'Maîtrisé'][level];
+                    
+                    levelProgress.innerHTML += `
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <span class="text-sm font-medium text-gray-700">${label}</span>
+                                <span class="text-sm font-bold text-gray-900">${count}/${total}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-indigo-600 h-2 rounded-full" style="width: ${percentage}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Cartes prioritaires
+                const priorityCards = document.getElementById('priority-cards');
+                priorityCards.innerHTML = '';
+                today.slice(0, 5).forEach(card => {
+                    priorityCards.innerHTML += `
+                        <div class="p-4 bg-amber-50 border-l-4 border-amber-500 rounded">
+                            <div class="font-semibold text-gray-900">${this.escapeHtml(card.recto)}</div>
+                            <div class="text-sm text-gray-600 mt-1">Niveau ${card.niveau_maitrise}/5</div>
+                        </div>
+                    `;
+                });
+
+                if (today.length === 0) {
+                    priorityCards.innerHTML = '<div class="text-center text-gray-500 py-8">✅ Vous êtes à jour!</div>';
+                }
+            }
+
+            renderPreviewCards() {
+                const preview = document.getElementById('preview-cards');
+                preview.innerHTML = '';
+
+                this.tempGeneratedCards.forEach((card, idx) => {
+                    preview.innerHTML += `
+                        <div class="p-4 bg-slate-100 rounded-lg border-l-4 border-indigo-500 slide-in">
+                            <div class="font-bold text-gray-900 text-sm">${idx + 1}. ${this.escapeHtml(card.recto)}</div>
+                            <div class="text-gray-600 text-sm mt-2">${this.escapeHtml(card.verso.substring(0, 80))}...</div>
+                        </div>
+                    `;
+                });
+
+                document.getElementById('confirm-btn').disabled = this.tempGeneratedCards.length === 0;
+            }
+
+            renderStudyCard() {
+                if (this.currentViewCards.length === 0) {
+                    document.getElementById('study-content').classList.add('hidden');
+                    document.getElementById('study-empty').classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById('study-content').classList.remove('hidden');
+                document.getElementById('study-empty').classList.add('hidden');
+
+                const card = this.currentViewCards[this.currentCardIndex];
+                document.getElementById('card-recto').textContent = card.recto;
+                document.getElementById('card-verso').textContent = card.verso;
+                document.getElementById('card').classList.remove('flipped');
+
+                const progress = `${this.currentCardIndex + 1}/${this.currentViewCards.length}`;
+                document.getElementById('study-progress').textContent = progress;
+
+                const successCount = this.currentViewCards.reduce((sum, c) => sum + c.historique.correct, 0);
+                const totalAttempts = this.currentViewCards.reduce((sum, c) => sum + c.historique.correct + c.historique.incorrect, 0);
+                const successRate = totalAttempts > 0 ? Math.round((successCount / totalAttempts) * 100) : 0;
+                document.getElementById('study-success').textContent = successRate + '%';
+            }
+
+            renderManageCards() {
+                const container = document.getElementById('manage-cards');
+                container.innerHTML = '';
+
+                if (this.cards.length === 0) {
+                    container.innerHTML = '<div class="col-span-full text-center text-gray-500 py-12">Aucune carte. Importez du contenu!</div>';
+                    return;
+                }
+
+                this.cards.forEach(card => {
+                    container.innerHTML += `
+                        <div class="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
+                            <div class="text-xs text-indigo-600 font-bold mb-2">CATÉGORIE: ${card.categorie}</div>
+                            <div class="font-bold text-gray-900 mb-3">${this.escapeHtml(card.recto)}</div>
+                            <div class="text-sm text-gray-600 mb-4">${this.escapeHtml(card.verso.substring(0, 100))}...</div>
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="font-semibold">
+                                    ✓ ${card.historique.correct} | ✗ ${card.historique.incorrect}
+                                </span>
+                                <span class="text-indigo-600 font-bold">Niveau ${card.niveau_maitrise}/5</span>
+                            </div>
+                            <div class="mt-4 flex gap-2">
+                                <button onclick="engine.deleteCard('${card.id}')" class="flex-1 px-3 py-2 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 transition">
+                                    Supprimer
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            updateAllUI() {
+                this.updateCategoryFilter();
+                this.renderDashboard();
+                this.renderManageCards();
+            }
+
+            updateCategoryFilter() {
+                const categories = [...new Set(this.cards.map(c => c.categorie))];
+                const select = document.getElementById('study-category');
+                const currentValue = select.value;
+
+                select.innerHTML = '<option value="">Toutes les catégories</option>';
+                categories.forEach(cat => {
+                    select.innerHTML += `<option value="${cat}">${cat}</option>`;
+                });
+
+                select.value = currentValue;
+            }
+
+            deleteCard(cardId) {
+                if (confirm('Supprimer cette carte?')) {
+                    this.cards = this.cards.filter(c => c.id != cardId);
+                    this.saveToStorage();
+                    this.updateAllUI();
+                    this.renderStudyCard();
+                }
+            }
+
+            exportData() {
+                const dataStr = JSON.stringify(this.cards, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `flashlearn_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            importData(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const imported = JSON.parse(e.target.result);
+                        if (Array.isArray(imported)) {
+                            this.cards = this.cards.concat(imported);
+                            this.saveToStorage();
+                            this.updateAllUI();
+                            alert(`✅ ${imported.length} carte(s) importée(s)`);
+                        }
+                    } catch (error) {
+                        alert('❌ Erreur lors de l\'importation');
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+
+        // ============================================
+        // INTERFACE GLOBALE
+        // ============================================
+
+        const engine = new FlashLearnEngine();
+
+        function switchView(viewName) {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.getElementById(viewName + '-view').classList.remove('hidden');
+
+            if (viewName === 'dashboard') {
+                engine.renderDashboard();
+            } else if (viewName === 'study') {
+                engine.loadStudyCards();
+            }
+        }
+
+        function generateCards() {
+            const text = document.getElementById('import-textarea').value;
+            const category = document.getElementById('import-category').value || 'Sans catégorie';
+            const count = parseInt(document.getElementById('import-count').value) || 5;
+
+            if (!text.trim()) {
+                alert('Entrez du texte d\'abord!');
+                return;
+            }
+
+            engine.tempGeneratedCards = engine.parseText(text, count);
+            engine.tempGeneratedCards.forEach(card => card.categorie = category);
+            engine.renderPreviewCards();
+        }
+
+        function confirmCards() {
+            if (engine.tempGeneratedCards.length === 0) return;
+
+            engine.cards = engine.cards.concat(engine.tempGeneratedCards);
+            engine.saveToStorage();
+            engine.tempGeneratedCards = [];
+
+            document.getElementById('import-textarea').value = '';
+            document.getElementById('import-category').value = '';
+            document.getElementById('preview-cards').innerHTML = '<p class="text-gray-500 text-center py-8">Les cartes générées apparaîtront ici</p>';
+            document.getElementById('confirm-btn').disabled = true;
+
+            engine.updateAllUI();
+            switchView('dashboard');
+            alert('✅ Cartes ajoutées à votre collection!');
+        }
+
+        function loadStudyCards() {
+            const category = document.getElementById('study-category').value;
+            engine.currentViewCards = category 
+                ? engine.getCardsForToday().filter(c => c.categorie === category)
+                : engine.getCardsForToday();
+            
+            engine.currentCardIndex = 0;
+            engine.renderStudyCard();
+        }
+
+        function flipCard() {
+            document.getElementById('card').classList.toggle('flipped');
+        }
+
+        function nextCard() {
+            engine.currentCardIndex = (engine.currentCardIndex + 1) % engine.currentViewCards.length;
+            engine.renderStudyCard();
+        }
+
+        function previousCard() {
+            engine.currentCardIndex = (engine.currentCardIndex - 1 + engine.currentViewCards.length) % engine.currentViewCards.length;
+            engine.renderStudyCard();
+        }
+
+        function markCard(correct) {
+            const card = engine.currentViewCards[engine.currentCardIndex];
+            engine.markCard(card.id, correct);
+            nextCard();
+            engine.renderDashboard();
+        }
+
+        function resetAllData() {
+            if (confirm('⚠️ Réinitialiser TOUTES les données? Cette action est irréversible!')) {
+                if (confirm('Êtes-vous VRAIMENT sûr?')) {
+                    localStorage.removeItem('flashlearn_cards');
+                    location.reload();
+                }
+            }
+        }
+
+        // Initialisation
+        switchView('dashboard');
+    </script>
+</body>
+</html>
